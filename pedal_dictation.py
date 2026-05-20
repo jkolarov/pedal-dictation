@@ -27,7 +27,6 @@ def _load_config():
     defaults = {
         "model_size": "medium",
         "language": "en",
-        "sample_rate": 16000,
         "groq_model": "llama-3.1-8b-instant",
         "record_hotkey": [162, 160, 116],
         "paste_last_hotkey": [164, 160, 90],
@@ -39,18 +38,30 @@ def _load_config():
             with open(config_path, encoding="utf-8") as f:
                 user = json.load(f)
             defaults.update(user)
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+            print(f"warning: failed to load config.json: {e}", file=sys.stderr)
     return defaults
+
+
+def _get_trigger_vk(hotkey_vks):
+    """Find the non-modifier VK in a hotkey list (modifiers are 160-165)."""
+    for vk in hotkey_vks:
+        if vk < 160 or vk > 165:
+            return vk
+    return hotkey_vks[-1]  # fallback
 
 
 _cfg = _load_config()
 MODEL_SIZE = _cfg["model_size"]
 LANGUAGE = _cfg["language"]
-SAMPLE_RATE = _cfg["sample_rate"]
+SAMPLE_RATE = 16000  # Fixed — Whisper requires 16kHz
 GROQ_MODEL = _cfg["groq_model"]
 RECORD_HOTKEY = set(_cfg["record_hotkey"])
 PASTE_LAST_HOTKEY = set(_cfg["paste_last_hotkey"])
+RECORD_TRIGGER_VK = _get_trigger_vk(_cfg["record_hotkey"])
+# Disambiguator: modifiers unique to record_hotkey that paste_last must NOT have
+_RECORD_ONLY_MODS = RECORD_HOTKEY - PASTE_LAST_HOTKEY
 
 
 def _load_groq_key():
@@ -235,14 +246,14 @@ def on_press(key):
     if vk in RECORD_HOTKEY and RECORD_HOTKEY.issubset(pressed_vks):
         start_recording()
     # Paste last hotkey (default: Alt+Shift+Z)
-    elif vk in PASTE_LAST_HOTKEY and PASTE_LAST_HOTKEY.issubset(pressed_vks) and 162 not in pressed_vks:
+    elif vk in PASTE_LAST_HOTKEY and PASTE_LAST_HOTKEY.issubset(pressed_vks) and not _RECORD_ONLY_MODS.intersection(pressed_vks):
         paste_last()
 
 
 def on_release(key):
     vk = _get_vk(key)
-    # Stop recording when the non-modifier key of the record hotkey is released
-    if vk == _cfg["record_hotkey"][-1] and recording:
+    # Stop recording when the trigger key of the record hotkey is released
+    if vk == RECORD_TRIGGER_VK and recording:
         threading.Thread(target=stop_recording, daemon=True).start()
     if vk:
         pressed_vks.discard(vk)

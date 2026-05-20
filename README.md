@@ -74,7 +74,6 @@ Copy `config.example.json` to `config.json` and edit as needed:
 {
   "model_size": "medium",
   "language": "en",
-  "sample_rate": 16000,
   "groq_model": "llama-3.1-8b-instant",
   "record_hotkey": [162, 160, 116],
   "paste_last_hotkey": [164, 160, 90]
@@ -83,7 +82,7 @@ Copy `config.example.json` to `config.json` and edit as needed:
 
 All keys are optional — missing keys fall back to defaults. Missing file is fine too.
 
-Hotkeys are arrays of Windows virtual key codes. Defaults: `[162, 160, 116]` = Ctrl+Shift+F5, `[164, 160, 90]` = Alt+Shift+Z.
+Hotkeys are arrays of Windows virtual key codes. The non-modifier key (anything outside 160-165) is used as the trigger for push-to-talk release detection. Defaults: `[162, 160, 116]` = Ctrl+Shift+F5, `[164, 160, 90]` = Alt+Shift+Z.
 
 ### Groq API key (optional)
 
