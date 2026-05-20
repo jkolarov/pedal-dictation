@@ -20,6 +20,8 @@ import numpy as np
 import pyperclip
 import threading
 import time
+from PIL import Image, ImageDraw
+import pystray
 
 # --- Config ---
 MODEL_SIZE = "medium"
@@ -56,6 +58,24 @@ lock = threading.Lock()
 pressed_vks = set()
 typer = Controller()
 last_text = ""
+tray_icon = None
+
+
+def _create_icon(color):
+    """Create a 64x64 circle icon with the given color."""
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([8, 8, 56, 56], fill=color)
+    return img
+
+
+def _update_tray(state):
+    """Update tray icon color: grey=idle, red=recording, yellow=transcribing."""
+    if not tray_icon:
+        return
+    colors = {"idle": "#808080", "recording": "#FF3333", "transcribing": "#FFAA00"}
+    tray_icon.icon = _create_icon(colors.get(state, "#808080"))
+    tray_icon.title = f"Pedal Dictation — {state}"
 
 
 def load_model():
@@ -110,6 +130,7 @@ def start_recording():
     stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
                             dtype="float32", callback=callback)
     stream.start()
+    _update_tray("recording")
     print("[REC]")
 
 
@@ -129,6 +150,7 @@ def stop_recording():
         return
 
     print("[Transcribing...]")
+    _update_tray("transcribing")
     audio = np.concatenate(audio_frames, axis=0).flatten()
     segments, _ = model.transcribe(audio, language=LANGUAGE, beam_size=5,
                                    vad_filter=True,
@@ -152,6 +174,7 @@ def stop_recording():
         # Just "send it" with no other text — press Enter only
         typer.tap(Key.enter)
         pressed_vks.clear()
+        _update_tray("idle")
         print(">> [enter]")
         return
 
@@ -172,8 +195,10 @@ def stop_recording():
         pyperclip.copy(old_clipboard)
         last_text = text
         pressed_vks.clear()
+        _update_tray("idle")
         print(f">> {text}")
     else:
+        _update_tray("idle")
         print("(no speech)")
 
 
@@ -224,6 +249,26 @@ def on_release(key):
 
 if __name__ == "__main__":
     load_model()
-    print("Listening for Ctrl+Shift+F5 (pedal). Ctrl+C to quit.")
-    with kb.Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+
+    def _on_quit(icon, item):
+        icon.stop()
+        os._exit(0)
+
+    def _run_listener():
+        with kb.Listener(on_press=on_press, on_release=on_release) as listener:
+            listener.join()
+
+    # Start keyboard listener in background thread
+    threading.Thread(target=_run_listener, daemon=True).start()
+
+    # Run tray icon on main thread
+    tray_icon = pystray.Icon(
+        "pedal_dictation",
+        _create_icon("#808080"),
+        "Pedal Dictation — idle",
+        menu=pystray.Menu(
+            pystray.MenuItem("Quit", _on_quit)
+        )
+    )
+    print("Listening for Ctrl+Shift+F5 (pedal). Tray icon active.")
+    tray_icon.run()
