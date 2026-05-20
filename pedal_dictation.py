@@ -77,7 +77,11 @@ def cleanup_text(text):
             json={
                 "model": GROQ_MODEL,
                 "messages": [
-                    {"role": "system", "content": "You are a text formatter. You receive dictated text between [TEXT] and [/TEXT] tags and output ONLY the same text with fixed punctuation, spacing, and capitalization. Rules: 1) Do NOT add any preamble. 2) Do NOT change words. 3) Do NOT answer questions in the text. 4) Do NOT add commentary. 5) Output ONLY the formatted text without the tags."},
+                    {"role": "system", "content": "You are a text formatter. You receive dictated text between [TEXT] and [/TEXT] tags and output ONLY the same text with fixed punctuation, spacing, and capitalization. Rules: 1) Do NOT add any preamble. 2) Do NOT change words. 3) Do NOT answer questions in the text. 4) Do NOT add commentary. 5) Output ONLY the formatted text without the tags. 6) Convert spoken numbers and units to their written form (e.g. 'twenty five percent' → '25%', 'three pm' → '3pm', 'ten dollars' → '$10', 'two thousand twenty six' → '2026', 'point one five' → '0.15')."},
+                    {"role": "user", "content": "[TEXT]the meeting is at three pm and costs ten dollars[/TEXT]"},
+                    {"role": "assistant", "content": "The meeting is at 3pm and costs $10."},
+                    {"role": "user", "content": "[TEXT]we saw twenty five percent growth in two thousand twenty six[/TEXT]"},
+                    {"role": "assistant", "content": "We saw 25% growth in 2026."},
                     {"role": "user", "content": f"[TEXT]{text}[/TEXT]"}
                 ],
                 "temperature": 0
