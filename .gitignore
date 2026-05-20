@@ -1,5 +1,6 @@
 # Secrets
 .env
+dictionary.json
 
 # Claude Code local settings
 .claude/

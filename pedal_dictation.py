@@ -47,6 +47,33 @@ def _load_groq_key():
 
 GROQ_API_KEY = _load_groq_key()
 
+
+def _load_dictionary():
+    """Load dictionary.json for word/phrase substitutions. Pre-compiles patterns."""
+    dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dictionary.json")
+    if not os.path.isfile(dict_path):
+        return []
+    try:
+        import json
+        import re
+        with open(dict_path, encoding="utf-8") as f:
+            raw = json.load(f)
+        return [(re.compile(r'\b' + re.escape(k) + r'\b', re.IGNORECASE), v) for k, v in raw.items()]
+    except Exception:
+        return []
+
+
+def apply_dictionary(text, dictionary):
+    """Apply pre-compiled substitutions from dictionary."""
+    if not dictionary:
+        return text
+    for pattern, replacement in dictionary:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+DICTIONARY = _load_dictionary()
+
 # --- State ---
 recording = False
 audio_frames = []
@@ -142,6 +169,7 @@ def stop_recording():
     text = " ".join(seg.text.strip() for seg in segments).strip()
     import re
     text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
+    text = apply_dictionary(text, DICTIONARY)
 
     if not text:
         print("(no speech)")
