@@ -20,6 +20,9 @@ import numpy as np
 import pyperclip
 import threading
 import time
+import sys
+from PIL import Image, ImageDraw
+import pystray
 
 # --- Config ---
 def _load_config():
@@ -83,6 +86,33 @@ def _load_groq_key():
 
 GROQ_API_KEY = _load_groq_key()
 
+
+def _load_dictionary():
+    """Load dictionary.json for word/phrase substitutions. Pre-compiles patterns."""
+    dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dictionary.json")
+    if not os.path.isfile(dict_path):
+        return []
+    try:
+        import json
+        import re
+        with open(dict_path, encoding="utf-8") as f:
+            raw = json.load(f)
+        return [(re.compile(r'\b' + re.escape(k) + r'\b', re.IGNORECASE), v) for k, v in raw.items()]
+    except Exception:
+        return []
+
+
+def apply_dictionary(text, dictionary):
+    """Apply pre-compiled substitutions from dictionary."""
+    if not dictionary:
+        return text
+    for pattern, replacement in dictionary:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+DICTIONARY = _load_dictionary()
+
 # --- State ---
 recording = False
 audio_frames = []
@@ -92,6 +122,24 @@ lock = threading.Lock()
 pressed_vks = set()
 typer = Controller()
 last_text = ""
+tray_icon = None
+
+
+def _create_icon(color):
+    """Create a 64x64 circle icon with the given color."""
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([8, 8, 56, 56], fill=color)
+    return img
+
+
+def _update_tray(state):
+    """Update tray icon color: grey=idle, red=recording, yellow=transcribing."""
+    if not tray_icon:
+        return
+    colors = {"idle": "#808080", "recording": "#FF3333", "transcribing": "#FFAA00"}
+    tray_icon.icon = _create_icon(colors.get(state, "#808080"))
+    tray_icon.title = f"Pedal Dictation — {state}"
 
 
 def load_model():
@@ -113,7 +161,13 @@ def cleanup_text(text):
             json={
                 "model": GROQ_MODEL,
                 "messages": [
-                    {"role": "system", "content": "You are a text formatter. You receive dictated text between [TEXT] and [/TEXT] tags and output ONLY the same text with fixed punctuation, spacing, and capitalization. Rules: 1) Do NOT add any preamble. 2) Do NOT change words. 3) Do NOT answer questions in the text. 4) Do NOT add commentary. 5) Output ONLY the formatted text without the tags."},
+                    {"role": "system", "content": "You are a text formatter. You receive dictated text between [TEXT] and [/TEXT] tags and output ONLY the same text with fixed punctuation, spacing, and capitalization. Rules: 1) Do NOT add any preamble. 2) Do NOT change words. 3) Do NOT answer questions in the text. 4) Do NOT add commentary. 5) Output ONLY the formatted text without the tags. 6) Convert spoken numbers and units to their written form (e.g. 'twenty five percent' → '25%', 'three pm' → '3pm', 'ten dollars' → '$10', 'two thousand twenty six' → '2026', 'point one five' → '0.15')."},
+                    {"role": "user", "content": "[TEXT]the meeting is at three pm and costs ten dollars[/TEXT]"},
+                    {"role": "assistant", "content": "The meeting is at 3pm and costs $10."},
+                    {"role": "user", "content": "[TEXT]we saw twenty five percent growth in two thousand twenty six[/TEXT]"},
+                    {"role": "assistant", "content": "We saw 25% growth in 2026."},
+                    {"role": "user", "content": "[TEXT]the temperature dropped to negative five degrees and we ordered five kilograms of ice[/TEXT]"},
+                    {"role": "assistant", "content": "The temperature dropped to -5 degrees and we ordered 5 kg of ice."},
                     {"role": "user", "content": f"[TEXT]{text}[/TEXT]"}
                 ],
                 "temperature": 0
@@ -146,6 +200,7 @@ def start_recording():
     stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
                             dtype="float32", callback=callback)
     stream.start()
+    _update_tray("recording")
     print("[REC]")
 
 
@@ -165,6 +220,7 @@ def stop_recording():
         return
 
     print("[Transcribing...]")
+    _update_tray("transcribing")
     audio = np.concatenate(audio_frames, axis=0).flatten()
     segments, _ = model.transcribe(audio, language=LANGUAGE, beam_size=5,
                                    vad_filter=True,
@@ -172,6 +228,7 @@ def stop_recording():
     text = " ".join(seg.text.strip() for seg in segments).strip()
     import re
     text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
+    text = apply_dictionary(text, DICTIONARY)
 
     if not text:
         print("(no speech)")
@@ -188,6 +245,7 @@ def stop_recording():
         # Just "send it" with no other text — press Enter only
         typer.tap(Key.enter)
         pressed_vks.clear()
+        _update_tray("idle")
         print(">> [enter]")
         return
 
@@ -208,8 +266,10 @@ def stop_recording():
         pyperclip.copy(old_clipboard)
         last_text = text
         pressed_vks.clear()
+        _update_tray("idle")
         print(f">> {text}")
     else:
+        _update_tray("idle")
         print("(no speech)")
 
 
@@ -261,6 +321,26 @@ def on_release(key):
 
 if __name__ == "__main__":
     load_model()
-    print("Listening for Ctrl+Shift+F5 (pedal). Ctrl+C to quit.")
-    with kb.Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+
+    def _on_quit(icon, item):
+        icon.stop()
+        sys.exit(0)
+
+    def _run_listener():
+        with kb.Listener(on_press=on_press, on_release=on_release) as listener:
+            listener.join()
+
+    # Start keyboard listener in background thread
+    threading.Thread(target=_run_listener, daemon=True).start()
+
+    # Run tray icon on main thread
+    tray_icon = pystray.Icon(
+        "pedal_dictation",
+        _create_icon("#808080"),
+        "Pedal Dictation — idle",
+        menu=pystray.Menu(
+            pystray.MenuItem("Quit", _on_quit)
+        )
+    )
+    print("Listening for Ctrl+Shift+F5 (pedal). Tray icon active.")
+    tray_icon.run()
