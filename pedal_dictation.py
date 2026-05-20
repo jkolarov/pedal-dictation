@@ -217,6 +217,7 @@ def stop_recording():
         stream = None
 
     if not audio_frames:
+        _update_tray("idle")
         return
 
     print("[Transcribing...]")
@@ -231,6 +232,7 @@ def stop_recording():
     text = apply_dictionary(text, DICTIONARY)
 
     if not text:
+        _update_tray("idle")
         print("(no speech)")
         return
 
@@ -250,6 +252,7 @@ def stop_recording():
         return
 
     if not text:
+        _update_tray("idle")
         return
 
     text = cleanup_text(text)
