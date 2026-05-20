@@ -47,6 +47,33 @@ def _load_groq_key():
 
 GROQ_API_KEY = _load_groq_key()
 
+
+def _load_dictionary():
+    """Load dictionary.json for word/phrase substitutions."""
+    dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dictionary.json")
+    if not os.path.isfile(dict_path):
+        return {}
+    try:
+        import json
+        with open(dict_path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def apply_dictionary(text, dictionary):
+    """Apply case-insensitive whole-word substitutions from dictionary."""
+    if not dictionary:
+        return text
+    import re
+    for spoken, replacement in dictionary.items():
+        pattern = re.compile(r'\b' + re.escape(spoken) + r'\b', re.IGNORECASE)
+        text = pattern.sub(replacement, text)
+    return text
+
+
+DICTIONARY = _load_dictionary()
+
 # --- State ---
 recording = False
 audio_frames = []
@@ -136,6 +163,7 @@ def stop_recording():
     text = " ".join(seg.text.strip() for seg in segments).strip()
     import re
     text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
+    text = apply_dictionary(text, DICTIONARY)
 
     if not text:
         print("(no speech)")

@@ -68,6 +68,25 @@ If said alone (without other text), just presses Enter.
 
 ## Configuration
 
+### Custom Dictionary / Snippets
+
+Create a `dictionary.json` next to the script to fix consistently mis-heard words or expand snippets:
+
+```json
+{
+  "anthropc": "Anthropic",
+  "claud": "Claude",
+  "my email": "you@example.com"
+}
+```
+
+- Case-insensitive whole-word matching
+- Applied after Whisper, before Groq cleanup
+- Missing file is fine — the feature is a no-op without it
+- See `dictionary.example.json` for a template
+
+### Model and language
+
 Edit the top of `pedal_dictation.py`:
 
 ```python
