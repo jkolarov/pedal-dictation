@@ -82,6 +82,8 @@ def cleanup_text(text):
                     {"role": "assistant", "content": "The meeting is at 3pm and costs $10."},
                     {"role": "user", "content": "[TEXT]we saw twenty five percent growth in two thousand twenty six[/TEXT]"},
                     {"role": "assistant", "content": "We saw 25% growth in 2026."},
+                    {"role": "user", "content": "[TEXT]the temperature dropped to negative five degrees and we ordered five kilograms of ice[/TEXT]"},
+                    {"role": "assistant", "content": "The temperature dropped to -5 degrees and we ordered 5 kg of ice."},
                     {"role": "user", "content": f"[TEXT]{text}[/TEXT]"}
                 ],
                 "temperature": 0
