@@ -4,6 +4,10 @@ Free, local push-to-talk voice dictation for Windows. Hold a USB foot pedal (or 
 
 Uses OpenAI Whisper (via faster-whisper) running locally on your NVIDIA GPU, with optional Groq LLM post-processing for punctuation cleanup.
 
+## Why
+
+Commercial dictation tools (Whisper Flow and similar) charge a monthly subscription and route audio through their servers. This project is a minimal, privacy-respecting alternative: all transcription runs locally on your GPU, the only optional network call is to Groq for punctuation cleanup, and the entire app is a single Python script you can read in one sitting.
+
 ## Features
 
 - **Push-to-talk** — hold to record, release to transcribe and paste
@@ -25,8 +29,7 @@ Uses OpenAI Whisper (via faster-whisper) running locally on your NVIDIA GPU, wit
 ## Installation
 
 ```bash
-pip install faster-whisper sounddevice pynput numpy pyperclip httpx
-pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+pip install -r requirements.txt
 ```
 
 The Whisper model (~1.5GB) downloads automatically on first run.
@@ -104,4 +107,4 @@ Single Python script. No frameworks, no config files, no database.
 
 ## License
 
-MIT
+[MIT](LICENSE)

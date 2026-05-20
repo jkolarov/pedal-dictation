@@ -3,11 +3,15 @@ Hold Ctrl+Shift+F5 (pedal) to record, release to transcribe and paste.
 """
 
 import os
-_nvidia = os.path.expanduser(r"~\AppData\Roaming\Python\Python314\site-packages\nvidia")
-for lib in ("cublas", "cudnn", "cuda_runtime", "cuda_nvrtc"):
-    p = os.path.join(_nvidia, lib, "bin")
-    if os.path.isdir(p):
-        os.environ["PATH"] = p + ";" + os.environ["PATH"]
+import glob
+
+# Add NVIDIA CUDA runtime libs (installed via pip) to PATH so faster-whisper can find them.
+# Glob across Python versions so this works on any 3.x install.
+for _nvidia in glob.glob(os.path.expanduser(r"~\AppData\Roaming\Python\Python*\site-packages\nvidia")):
+    for lib in ("cublas", "cudnn", "cuda_runtime", "cuda_nvrtc"):
+        p = os.path.join(_nvidia, lib, "bin")
+        if os.path.isdir(p):
+            os.environ["PATH"] = p + ";" + os.environ["PATH"]
 
 from pynput import keyboard as kb
 from pynput.keyboard import Key, Controller
@@ -51,9 +55,7 @@ model = None
 lock = threading.Lock()
 pressed_vks = set()
 typer = Controller()
-active_window = None
 last_text = ""
-active_window = None
 
 
 def load_model():
