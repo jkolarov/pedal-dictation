@@ -84,6 +84,7 @@ Create a `dictionary.json` next to the script to fix consistently mis-heard word
 - Applied after Whisper, before Groq cleanup
 - Missing file is fine — the feature is a no-op without it
 - See `dictionary.example.json` for a template
+- **Note:** Avoid adding entries for voice command phrases ("send it", "press enter", "hit enter") as substitutions run before command detection
 
 ### Model and language
 

@@ -49,25 +49,25 @@ GROQ_API_KEY = _load_groq_key()
 
 
 def _load_dictionary():
-    """Load dictionary.json for word/phrase substitutions."""
+    """Load dictionary.json for word/phrase substitutions. Pre-compiles patterns."""
     dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dictionary.json")
     if not os.path.isfile(dict_path):
-        return {}
+        return []
     try:
         import json
+        import re
         with open(dict_path, encoding="utf-8") as f:
-            return json.load(f)
+            raw = json.load(f)
+        return [(re.compile(r'\b' + re.escape(k) + r'\b', re.IGNORECASE), v) for k, v in raw.items()]
     except Exception:
-        return {}
+        return []
 
 
 def apply_dictionary(text, dictionary):
-    """Apply case-insensitive whole-word substitutions from dictionary."""
+    """Apply pre-compiled substitutions from dictionary."""
     if not dictionary:
         return text
-    import re
-    for spoken, replacement in dictionary.items():
-        pattern = re.compile(r'\b' + re.escape(spoken) + r'\b', re.IGNORECASE)
+    for pattern, replacement in dictionary:
         text = pattern.sub(replacement, text)
     return text
 
