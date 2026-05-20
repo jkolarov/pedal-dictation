@@ -20,6 +20,7 @@ import numpy as np
 import pyperclip
 import threading
 import time
+import sys
 from PIL import Image, ImageDraw
 import pystray
 
@@ -252,7 +253,7 @@ if __name__ == "__main__":
 
     def _on_quit(icon, item):
         icon.stop()
-        os._exit(0)
+        sys.exit(0)
 
     def _run_listener():
         with kb.Listener(on_press=on_press, on_release=on_release) as listener:
