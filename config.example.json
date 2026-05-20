@@ -1,0 +1,8 @@
+{
+  "model_size": "medium",
+  "language": "en",
+  "sample_rate": 16000,
+  "groq_model": "llama-3.1-8b-instant",
+  "record_hotkey": [162, 160, 116],
+  "paste_last_hotkey": [164, 160, 90]
+}
