@@ -111,6 +111,32 @@ def apply_dictionary(text, dictionary):
     return text
 
 
+def _postprocess_text(raw):
+    """Pure text pipeline: fix spacing → dictionary → detect send-enter → cleanup → trailing space.
+
+    Returns (text_to_paste, send_enter). text_to_paste is '' if nothing should be pasted.
+    """
+    import re
+    text = re.sub(r'([.!?])([A-Z])', r'\1 \2', raw)
+    text = apply_dictionary(text, DICTIONARY)
+    if not text:
+        return "", False
+
+    send_enter = False
+    match = re.search(r'\s*(press enter|hit enter|send it)[.!?]*$', text, re.IGNORECASE)
+    if match:
+        text = text[:match.start()].rstrip()
+        send_enter = True
+
+    if not text:
+        return "", send_enter
+
+    text = cleanup_text(text)
+    if text:
+        text += " "
+    return text, send_enter
+
+
 DICTIONARY = _load_dictionary()
 
 # --- State ---
@@ -226,22 +252,13 @@ def stop_recording():
     segments, _ = model.transcribe(audio, language=LANGUAGE, beam_size=5,
                                    vad_filter=True,
                                    initial_prompt="Use proper punctuation: periods, commas, and capitalization.")
-    text = " ".join(seg.text.strip() for seg in segments).strip()
-    import re
-    text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
-    text = apply_dictionary(text, DICTIONARY)
+    raw = " ".join(seg.text.strip() for seg in segments).strip()
+    text, send_enter = _postprocess_text(raw)
 
-    if not text:
+    if not text and not send_enter:
         _update_tray("idle")
         print("(no speech)")
         return
-
-    # Detect "send it" / "press enter" BEFORE cleanup
-    send_enter = False
-    match = re.search(r'\s*(press enter|hit enter|send it)[.!?]*$', text, re.IGNORECASE)
-    if match:
-        text = text[:match.start()].rstrip()
-        send_enter = True
 
     if not text and send_enter:
         # Just "send it" with no other text — press Enter only
@@ -251,14 +268,7 @@ def stop_recording():
         print(">> [enter]")
         return
 
-    if not text:
-        _update_tray("idle")
-        return
-
-    text = cleanup_text(text)
-
     if text:
-        text += " "
         old_clipboard = pyperclip.paste()
         pyperclip.copy(text)
         time.sleep(0.05)
