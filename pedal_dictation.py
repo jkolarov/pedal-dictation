@@ -258,6 +258,7 @@ def stop_recording():
     text = cleanup_text(text)
 
     if text:
+        text += " "
         old_clipboard = pyperclip.paste()
         pyperclip.copy(text)
         time.sleep(0.05)
