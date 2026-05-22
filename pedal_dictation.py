@@ -210,19 +210,20 @@ def stop_recording():
         if not recording:
             return
         recording = False
+        frames_snapshot = list(audio_frames)  # snapshot before a new recording can clear it
 
     if stream:
         stream.stop()
         stream.close()
         stream = None
 
-    if not audio_frames:
+    if not frames_snapshot:
         _update_tray("idle")
         return
 
     print("[Transcribing...]")
     _update_tray("transcribing")
-    audio = np.concatenate(audio_frames, axis=0).flatten()
+    audio = np.concatenate(frames_snapshot, axis=0).flatten()
     segments, _ = model.transcribe(audio, language=LANGUAGE, beam_size=5,
                                    vad_filter=True,
                                    initial_prompt="Use proper punctuation: periods, commas, and capitalization.")
@@ -259,15 +260,18 @@ def stop_recording():
 
     if text:
         text += " "
-        old_clipboard = pyperclip.paste()
-        pyperclip.copy(text)
-        time.sleep(0.05)
-        with typer.pressed(Key.ctrl):
-            typer.tap(kb.KeyCode.from_vk(0x56))  # V key, layout-independent
-        time.sleep(0.05)
-        if send_enter:
-            typer.tap(Key.enter)
-        pyperclip.copy(old_clipboard)
+        # Serialize clipboard access: prevents two overlapping stop_recording calls
+        # from racing — one overwriting the clipboard before the other pastes.
+        with lock:
+            old_clipboard = pyperclip.paste()
+            pyperclip.copy(text)
+            time.sleep(0.05)
+            with typer.pressed(Key.ctrl):
+                typer.tap(kb.KeyCode.from_vk(0x56))  # V key, layout-independent
+            time.sleep(0.05)
+            if send_enter:
+                typer.tap(Key.enter)
+            pyperclip.copy(old_clipboard)
         last_text = text
         pressed_vks.clear()
         _update_tray("idle")
