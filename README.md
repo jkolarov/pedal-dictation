@@ -29,10 +29,12 @@ Commercial dictation tools (Whisper Flow and similar) charge a monthly subscript
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install --target vendor -r requirements.txt
 ```
 
-The Whisper model (~1.5GB) downloads automatically on first run.
+This installs all dependencies (including the NVIDIA CUDA runtime libraries) into a `vendor/` folder next to the script. The script prepends `vendor/` to `sys.path` at startup, so it doesn't matter which Python on the machine ends up launching it — the deps it finds are always the ones in `vendor/`. This also avoids per-user `site-packages` issues with sandboxed/AppContainer launch contexts.
+
+The Whisper model (~1.5GB) downloads on first run into `~/.cache/huggingface/hub/` and is reused on subsequent launches.
 
 ## Usage
 

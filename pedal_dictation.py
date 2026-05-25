@@ -3,11 +3,16 @@ Hold Ctrl+Shift+F5 (pedal) to record, release to transcribe and paste.
 """
 
 import os
-import glob
+import sys
 
-# Add NVIDIA CUDA runtime libs (installed via pip) to PATH so faster-whisper can find them.
-# Glob across Python versions so this works on any 3.x install.
-for _nvidia in glob.glob(os.path.expanduser(r"~\AppData\Roaming\Python\Python*\site-packages\nvidia")):
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_VENDOR = os.path.join(_SCRIPT_DIR, "vendor")
+if _VENDOR not in sys.path:
+    sys.path.insert(0, _VENDOR)
+
+# Add NVIDIA CUDA runtime libs to PATH so faster-whisper can find them.
+_nvidia = os.path.join(_VENDOR, "nvidia")
+if os.path.isdir(_nvidia):
     for lib in ("cublas", "cudnn", "cuda_runtime", "cuda_nvrtc"):
         p = os.path.join(_nvidia, lib, "bin")
         if os.path.isdir(p):
@@ -20,7 +25,6 @@ import numpy as np
 import pyperclip
 import threading
 import time
-import sys
 from PIL import Image, ImageDraw
 import pystray
 
@@ -146,7 +150,12 @@ def load_model():
     global model
     from faster_whisper import WhisperModel
     print(f"Loading {MODEL_SIZE} model on CUDA...")
-    model = WhisperModel(MODEL_SIZE, device="cuda", compute_type="float16")
+    # local_files_only=True: skip the HuggingFace online revision check on every
+    # launch. Faster startup, works offline. First-time install still needs to
+    # download — run `python pedal_dictation.py` manually once with network
+    # access, then this flag keeps subsequent launches local.
+    model = WhisperModel(MODEL_SIZE, device="cuda", compute_type="float16",
+                         local_files_only=True)
     print("Model loaded! Ready - hold your pedal to dictate.")
 
 
